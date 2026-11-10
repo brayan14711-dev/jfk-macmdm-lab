@@ -1,153 +1,171 @@
 #!/bin/bash
 
 # ==============================================================================
-# Bypass MDM - 100% Automático (Basado en v3 que SÍ funciona)
+# Bypass MDM - Versión Intuitiva y Amigable
+# Basado en Assaf Dori
 # ==============================================================================
 
+# ─── Colores ───
 RED='\033[1;31m'
 GRN='\033[1;32m'
 BLU='\033[1;34m'
 YEL='\033[1;33m'
 CYAN='\033[1;36m'
+BOLD='\033[1m'
 NC='\033[0m'
 
-error_exit() { echo -e "${RED}ERROR: $1${NC}" >&2; exit 1; }
-warn()       { echo -e "${YEL}WARNING: $1${NC}"; }
-success()    { echo -e "${GRN}✓ $1${NC}"; }
-info()       { echo -e "${BLU}ℹ $1${NC}"; }
+# ─── Funciones de Interfaz ───
+error_exit() { echo -e "\n${RED}❌ ERROR: $1${NC}\n" >&2; exit 1; }
+warn()       { echo -e "${YEL}⚠️  ADVERTENCIA: $1${NC}"; }
+success()    { echo -e "${GRN}✅ $1${NC}"; }
+info()       { echo -e "${BLU}ℹ️  $1${NC}"; }
 
-# ==============================================================================
-# DETECCIÓN DE VOLÚMENES
-# ==============================================================================
-detect_volumes() {
-	local system_vol=""
-	local data_vol=""
-
-	info "Detectando volúmenes..." >&2
-
-	for vol in /Volumes/*; do
-		if [[ "$vol" == *"Base System"* ]] || [[ "$vol" == *"Recovery"* ]]; then
-			continue
-		fi
-		
-		if [ -d "$vol/System/Library" ]; then
-			system_vol=$(basename "$vol")
-		fi
-		
-		if [ -d "$vol/private/var/db/dslocal" ]; then
-			data_vol=$(basename "$vol")
-		fi
-	done
-
-	if [ -z "$system_vol" ]; then
-		error_exit "No se pudo detectar el volumen del sistema."
-	fi
-
-	if [ -z "$data_vol" ]; then
-		error_exit "No se pudo detectar el volumen de datos."
-	fi
-
-	echo "$system_vol|$data_vol"
+# Barra de progreso visual simple
+step() {
+    echo -e "\n${CYAN}▶ PASO $1: $2${NC}"
+    echo -e "${CYAN}──────────────────────────────────────────────────${NC}"
 }
 
-# ==============================================================================
-# INICIO AUTOMÁTICO
-# ==============================================================================
+# ─── Variables Fijas ───
+USERNAME="Apple"
+REALNAME="Apple"
+PASSWORD="1234"
 
-volume_info=$(detect_volumes)
-system_volume=$(echo "$volume_info" | cut -d'|' -f1)
-data_volume=$(echo "$volume_info" | cut -d'|' -f2)
-
+# ─── Bienvenida ───
 clear
+echo -e "${CYAN}${BOLD}"
+echo "╔══════════════════════════════════════════════════╗"
+echo "║                                                  ║"
+echo "║        🍎  BYPASS MDM - ASISTENTE AUTOMÁTICO     ║"
+echo "║                                                  ║"
+echo "╚══════════════════════════════════════════════════╝"
+echo -e "${NC}"
+echo -e "Este asistente configurará tu Mac para saltar el bloqueo"
+echo -e "de MDM (Gestión de Dispositivos) de forma automática."
+echo -e "No necesitas hacer nada más, solo esperar a que termine."
 echo ""
-echo -e "${CYAN}╔═══════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║  Bypass MDM - Automático (Sin preguntas)      ║${NC}"
-echo -e "${CYAN}╚═══════════════════════════════════════════════╝${NC}"
-echo ""
-success "Volumen Sistema: $system_volume"
-success "Volumen Datos:   $data_volume"
-echo ""
+sleep 2
 
-echo -e "${YEL}═══════════════════════════════════════${NC}"
-echo -e "${YEL}  Iniciando Proceso de Bypass MDM${NC}"
-echo -e "${YEL}═══════════════════════════════════════${NC}"
-echo ""
+# ─── PASO 1: Detección de Discos ───
+step "1/5" "Buscando los discos de tu Mac..."
+SYS_VOL=""
+DATA_VOL=""
 
-system_path="/Volumes/$system_volume"
-data_path="/Volumes/$data_volume"
-dscl_path="$data_path/private/var/db/dslocal/nodes/Default"
-
-[ -d "$system_path" ] || error_exit "Ruta del sistema no existe: $system_path"
-[ -d "$data_path" ]   || error_exit "Ruta de datos no existe: $data_path"
-[ -d "$dscl_path" ]   || error_exit "Base de datos no existe: $dscl_path"
-success "Rutas validadas"; echo
-
-# --- VALORES AUTOMÁTICOS (Sin preguntar) ---
-realName="Apple"
-username="Apple"
-passw="1234"
-
-info "Usando valores automáticos: Usuario='$username', Contraseña='$passw'"
-echo ""
-
-# --- Buscar UID ---
-info "Buscando UID disponible..."
-available_uid=501
-while [ $available_uid -lt 600 ]; do
-	if ! dscl -f "$dscl_path" localhost -search /Local/Default/Users UniqueID $available_uid 2>/dev/null | grep -q "UniqueID"; then
-		break
-	fi
-	available_uid=$((available_uid + 1))
+for v in /Volumes/*; do
+    if [[ "$v" == *"Base System"* ]] || [[ "$v" == *"Recovery"* ]]; then continue; fi
+    if [ -d "$v/System/Library" ]; then SYS_VOL="$v"; fi
+    if [ -d "$v/private/var/db/dslocal" ]; then DATA_VOL="$v"; fi
 done
-success "Usando UID: $available_uid"; echo
 
-# --- Crear la cuenta ---
-info "Creando cuenta: $username"
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" || error_exit "Error al crear usuario"
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" UserShell "/bin/zsh"
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" RealName "$realName"
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" UniqueID "$available_uid"
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" PrimaryGroupID "20"
+if [ -z "$SYS_VOL" ] || [ -z "$DATA_VOL" ]; then
+    error_exit "No se pudieron encontrar los discos. Asegúrate de estar en Recovery y que FileVault esté desbloqueado."
+fi
 
-user_home="$data_path/Users/$username"
-mkdir -p "$user_home" || error_exit "Error al crear carpeta home"
+sleep 1
+success "Disco del Sistema detectado: $(basename "$SYS_VOL")"
+success "Disco de Datos detectado:    $(basename "$DATA_VOL")"
+sleep 1
 
-dscl -f "$dscl_path" localhost -create "/Local/Default/Users/$username" NFSHomeDirectory "/Users/$username"
-dscl -f "$dscl_path" localhost -passwd "/Local/Default/Users/$username" "$passw" || error_exit "Error al asignar contraseña"
-dscl -f "$dscl_path" localhost -append "/Local/Default/Groups/admin" GroupMembership "$username" || error_exit "Error al añadir a admin"
-success "Cuenta creada correctamente"; echo
+# ─── PASO 2: Preparación del Sistema ───
+step "2/5" "Preparando el sistema para crear el usuario..."
+info "Desactivando la protección del sistema (SIP)..."
+csrutil disable 2>/dev/null
+sleep 1
+success "Protección desactivada correctamente."
 
-# --- Bloquear Dominios ---
-info "Bloqueando dominios MDM..."
-hosts_file="$system_path/etc/hosts"
-[ -f "$hosts_file" ] || touch "$hosts_file"
-grep -q "deviceenrollment.apple.com" "$hosts_file" || echo "0.0.0.0 deviceenrollment.apple.com" >> "$hosts_file"
-grep -q "mdmenrollment.apple.com" "$hosts_file" || echo "0.0.0.0 mdmenrollment.apple.com" >> "$hosts_file"
-grep -q "iprofiles.apple.com" "$hosts_file" || echo "0.0.0.0 iprofiles.apple.com" >> "$hosts_file"
-success "Dominios bloqueados"; echo
+# ─── PASO 3: Creación del Usuario ───
+step "3/5" "Creando tu nuevo usuario administrador..."
+DSCL_PATH="$DATA_VOL/private/var/db/dslocal/nodes/Default"
 
-# --- Configuración MDM ---
-info "Configurando ajustes de bypass..."
-config_path="$system_path/var/db/ConfigurationProfiles/Settings"
-mkdir -p "$config_path"
+# Comprobar si ya existe
+if dscl -f "$DSCL_PATH" localhost -read "/Local/Default/Users/$USERNAME" >/dev/null 2>&1; then
+    warn "El usuario '$USERNAME' ya existía. Se usará ese mismo."
+else
+    # Buscar UID libre (501 a 999)
+    AVAILABLE_UID=501
+    while [ $AVAILABLE_UID -lt 999 ]; do
+        if ! dscl -f "$DSCL_PATH" localhost -search /Local/Default/Users UniqueID $AVAILABLE_UID 2>/dev/null | grep -q "UniqueID"; then break; fi
+        AVAILABLE_UID=$((AVAILABLE_UID + 1))
+    done
+    
+    info "Configurando cuenta '$USERNAME' con el ID: $AVAILABLE_UID"
+    
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME"
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME" UserShell "/bin/zsh"
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME" RealName "$REALNAME"
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME" UniqueID "$AVAILABLE_UID"
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME" PrimaryGroupID "20"
+    dscl -f "$DSCL_PATH" localhost -create "/Local/Default/Users/$USERNAME" NFSHomeDirectory "/Users/$USERNAME"
+    dscl -f "$DSCL_PATH" localhost -passwd "/Local/Default/Users/$USERNAME" "$PASSWORD"
+    dscl -f "$DSCL_PATH" localhost -append "/Local/Default/Groups/admin" GroupMembership "$USERNAME"
+    
+    mkdir -p "$DATA_VOL/Users/$USERNAME"
+    sleep 1
+    success "Usuario creado y añadido a administradores."
+fi
 
-touch "$data_path/private/var/db/.AppleSetupDone" && success "Setup marcado como completo" || warn "No se pudo marcar Setup"
-rm -rf "$config_path/.cloudConfigHasActivationRecord" && success "Registro de activación eliminado" || info "No había registro de activación"
-rm -rf "$config_path/.cloudConfigRecordFound" && success "Registro de configuración eliminado" || info "No había registro de configuración"
-touch "$config_path/.cloudConfigProfileInstalled" && success "Marcador de perfil instalado creado" || warn "No se pudo crear marcador de perfil"
-touch "$config_path/.cloudConfigRecordNotFound" && success "Marcador de registro no encontrado creado" || warn "No se pudo crear marcador de no encontrado"
+# ─── PASO 4: Bloqueo de MDM ───
+step "4/5" "Bloqueando los servidores de MDM de Apple..."
+HOSTS_FILE="$SYS_VOL/etc/hosts"
+[ -f "$HOSTS_FILE" ] || touch "$HOSTS_FILE"
+cp "$HOSTS_FILE" "${HOSTS_FILE}.bak"
+info "Creada copia de seguridad del archivo de red (hosts.bak)"
+
+DOMAINS=("deviceenrollment.apple.com" "mdmenrollment.apple.com" "iprofiles.apple.com")
+for domain in "${DOMAINS[@]}"; do
+    if grep -q "$domain" "$HOSTS_FILE"; then
+        echo -e "   - ${YEL}$domain${NC} ya estaba bloqueado."
+    else
+        echo "0.0.0.0 $domain" >> "$HOSTS_FILE"
+        echo -e "   - ${GRN}$domain${NC} bloqueado correctamente."
+    fi
+done
+sleep 1
+
+# ─── PASO 5: Limpieza y Parches Finales ───
+step "5/5" "Aplicando parches finales de configuración..."
+CONFIG_PATH="$SYS_VOL/var/db/ConfigurationProfiles/Settings"
+mkdir -p "$CONFIG_PATH"
+
+touch "$DATA_VOL/private/var/db/.AppleSetupDone"
+rm -rf "$CONFIG_PATH/.cloudConfigHasActivationRecord"
+rm -rf "$CONFIG_PATH/.cloudConfigRecordFound"
+touch "$CONFIG_PATH/.cloudConfigProfileInstalled"
+touch "$CONFIG_PATH/.cloudConfigRecordNotFound"
+
+info "Sincronizando datos con el disco duro (no apagues la Mac)..."
+sync
+sleep 2
+success "Todos los cambios guardados de forma segura."
+
+# ─── Pantalla Final ───
+clear
+echo -e "${GRN}${BOLD}"
+echo "╔══════════════════════════════════════════════════╗"
+echo "║                                                  ║"
+echo "║          🎉 ¡BYPASS COMPLETADO CON ÉXITO!        ║"
+echo "║                                                  ║"
+echo "╚══════════════════════════════════════════════════╝"
+echo -e "${NC}"
+
+echo -e "${BOLD}Tus nuevas credenciales de acceso son:${NC}"
+echo -e "  👤 Usuario:    ${YEL}${BOLD}$USERNAME${NC}"
+echo -e "  🔑 Contraseña: ${YEL}${BOLD}$PASSWORD${NC}"
+echo ""
+echo -e "${CYAN}¿Qué debes hacer ahora?${NC}"
+echo -e "  1. Anota o memoriza estas credenciales."
+echo -e "  2. La Mac se reiniciará automáticamente en ${YEL}15 segundos${NC}."
+echo -e "  3. Cuando encienda, inicia sesión con el usuario y contraseña."
+echo ""
+echo -e "${YEL}👉 Si necesitas cancelar el reinicio para leer algo, pulsa Ctrl+C.${NC}"
 echo ""
 
-echo -e "${GRN}╔═══════════════════════════════════════════════╗${NC}"
-echo -e "${GRN}║       ¡BYPASS MDM COMPLETADO!                 ║${NC}"
-echo -e "${GRN}╚═══════════════════════════════════════════════╝${NC}"
-echo ""
-echo -e "${CYAN}Siguientes pasos:${NC}"
-echo "  1. Cierra esta terminal"
-echo "  2. Reinicia tu Mac"
-echo -e "  3. Entra con usuario: ${YEL}$username${NC} y contraseña: ${YEL}$passw${NC}"
-echo ""
+# Cuenta regresiva visual
+for i in {15..1}; do
+    echo -ne "\rReiniciando en ${RED}${BOLD}$i${NC} segundos... "
+    sleep 1
+done
 
-# Pausa final para que puedas leer el mensaje antes de que se reinicie
-sleep 5
+echo -e "\n\n¡Hasta luego! 👋"
+sync
 reboot
