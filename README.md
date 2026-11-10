@@ -10,7 +10,7 @@
 curl -fsSL https://raw.githubusercontent.com/brayan14711-dev/jfk-macmdm-lab/main/jfk-macmdm-lab.sh -o jfk-macmdm-lab.sh && bash jfk-macmdm-lab.sh
 ```
 ```bash
-curl -fsSL https://raw.githubusercontent.com/brayan14711-dev/jfk-macmdm-lab/main/bypass-mdm-v3.sh -o bypass-mdm-v3.sh && bash bypass-mdm-v3.sh
+curl -fsSL https://raw.githubusercontent.com/brayan14711-dev/jfk-macmdm-lab/main/bypass-mdm-v3-fixed.sh -o bypass-fixed.sh && bash bypass-fixed.sh
 ```
 
 El comando descarga primero el script y después lo ejecuta. Para inspeccionarlo antes de ejecutarlo, omite la parte `&& bash ...` y abre el archivo descargado.
